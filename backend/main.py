@@ -2,7 +2,6 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 import io
-import os
 from transformers import BlipProcessor, BlipForConditionalGeneration
 import torch
 
@@ -17,42 +16,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define cache directory - use /tmp for Render
-CACHE_DIR = "/tmp/model_cache"
-os.makedirs(CACHE_DIR, exist_ok=True)
-
 # Global variables for model and processor
 _model = None
 _processor = None
 
 def get_model():
-    """Load model with local caching"""
+    """Singleton pattern to load model only once"""
     global _model
     if _model is None:
-        # Set cache directory for huggingface
-        os.environ['TRANSFORMERS_CACHE'] = CACHE_DIR
-        os.environ['HF_HOME'] = CACHE_DIR
-        
-        # Download model to cache directory
-        _model = BlipForConditionalGeneration.from_pretrained(
-            "Salesforce/blip-image-captioning-base",
-            cache_dir=CACHE_DIR,
-            local_files_only=False  # Allow downloading if not in cache
-        )
-        
-        # Save model state to cache
-        torch.save(_model.state_dict(), os.path.join(CACHE_DIR, "model.pt"))
+        _model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
     return _model
 
 def get_processor():
-    """Load processor with local caching"""
+    """Singleton pattern to load processor only once"""
     global _processor
     if _processor is None:
-        _processor = BlipProcessor.from_pretrained(
-            "Salesforce/blip-image-captioning-base",
-            cache_dir=CACHE_DIR,
-            local_files_only=False
-        )
+        _processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
     return _processor
 
 def process_image(image):
@@ -73,18 +52,13 @@ async def startup_event():
 @app.post("/analyze")
 async def analyze_image(file: UploadFile = File(...)):
     try:
-        # Get model instance
         model = get_model()
         processor = get_processor()
         
-        # Read and process the image
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
         
-        # Process image
         inputs = process_image(image)
-        
-        # Generate caption
         outputs = model.generate(**inputs, max_length=50, num_beams=5)
         caption = processor.decode(outputs[0], skip_special_tokens=True)
         
