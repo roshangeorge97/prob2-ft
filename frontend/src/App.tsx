@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent } from 'react';
+import  { useState, ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
@@ -33,7 +33,7 @@ const App = () => {
     formData.append('file', selectedFile);
 
     try {
-      const response = await fetch('http://localhost:8000/analyze', {
+      const response = await fetch('https://prob2-ft.onrender.com/analyze', {
         method: 'POST',
         body: formData,
       });
